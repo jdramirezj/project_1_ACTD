@@ -6,12 +6,14 @@ from pgmpy.models import BayesianNetwork
 from pgmpy.estimators import MaximumLikelihoodEstimator
 from sklearn.model_selection import train_test_split
 from pgmpy.inference import VariableElimination
-# Definir el path en dónde se encuentran los datos
-path_datos = 'C:/Users/berna/OneDrive/Escritorio/Universidad de los Andes/Semestre 2023-2/Análitica Computacional para la Toma de Decisiones/Proyecto/predict+students+dropout+and+academic+success'
+import numpy as np
 
+# Definir el path en dónde se encuentran los datos
+path_datos_samuel = 'C:/Users/berna/OneDrive/Escritorio/Universidad de los Andes/Semestre 2023-2/Análitica Computacional para la Toma de Decisiones/Proyecto/predict+students+dropout+and+academic+success'
+path_datos_juan = '/Users/juandramirezj/Documents/Universidad - MIIND/ACTD/proyecto_1/project_1_ACTD/data'
 
 # Cargar los datos
-data = pd.read_csv(path_datos+'/data.csv', delimiter=";")
+data = pd.read_csv(path_datos_juan+'/data.csv', delimiter=";")
 # For numerical columns, fill NaN with mean
 for col in data.select_dtypes(include=['float64', 'int64']):
     data[col].fillna(data[col].mean(), inplace=True)
@@ -20,13 +22,13 @@ for col in data.select_dtypes(include=['float64', 'int64']):
 for col in data.select_dtypes(include=['object']):
     data[col].fillna(data[col].mode()[0], inplace=True)
 
-
 # Exploración de los datos
 data.head()
-data['Curricular units 1st sem (enrolled)'].value_counts()
 data=data[data['Curricular units 1st sem (enrolled)']!=0]
 data['perc_approved_sem1'] = data['Curricular units 1st sem (approved)']/data['Curricular units 1st sem (enrolled)']
 data['perc_approved_sem2'] = data['Curricular units 2nd sem (approved)']/data['Curricular units 2nd sem (enrolled)']
+
+
 
 nan_summary = data.isna().sum()
 print(nan_summary)
@@ -36,6 +38,15 @@ print(nan_summary)
 
 print(data)
 
+# Discretize 'perc_approved_sem2' into quartiles
+data['Inflation rate'] = pd.qcut(data['Inflation rate'], q=4, labels=["Q1", "Q2", "Q3", "Q4"])
+data['Unemployment rate'] = pd.qcut(data['Unemployment rate'], q=4, labels=["Q1", "Q2", "Q3", "Q4"])
+data['perc_approved_sem1'] = pd.qcut(data['perc_approved_sem1'], q=2, labels=["Q1", "Q2"])
+data['perc_approved_sem2'] = pd.qcut(data['perc_approved_sem2'], q=2, labels=["Q1", "Q2"])
+data['Age at enrollment'] = pd.qcut(data['Age at enrollment'], q=4, labels=["Q1", "Q2", "Q3", "Q4"])
+data['Target']
+data['actual_target'] = np.where(data['Target']=='Dropout',1,0)
+
 # Partir los datos en entrenamiento y prueba
 train_data, test_data = train_test_split(data, test_size=0.25, random_state=42)
 
@@ -43,8 +54,8 @@ train_data, test_data = train_test_split(data, test_size=0.25, random_state=42)
 # Definir la red bayesiana
 model = BayesianNetwork([("Unemployment rate", "Debtor"), ("Inflation rate", "Debtor"),
                          ("Debtor", "perc_approved_sem1"), ("Scholarship holder", "perc_approved_sem1"),
-                         ("perc_approved_sem1", "perc_approved_sem2"), ("perc_approved_sem2","Target"),
-                         ("Age at enrollment","Target")])
+                         ("perc_approved_sem1", "perc_approved_sem2"), ("perc_approved_sem2","actual_target"),
+                         ("Age at enrollment","actual_target")])
 
 model.fit(data=train_data, estimator=MaximumLikelihoodEstimator)
 data.columns
@@ -59,21 +70,20 @@ test_data.shape
 # For each row in the test_data, predict the probability of "lung"
 test_data.head()
 target_probabilities = []
-row=test_data.iloc[0,:]
 for index, row in test_data.iterrows():
-    prob = inference.query(variables=["Target"], evidence={"Age at enrollment": row["Age at enrollment"],
+    prob = inference.query(variables=["actual_target"], evidence={"Age at enrollment": row["Age at enrollment"],
                                                           "perc_approved_sem2": row['perc_approved_sem2']})
-    target_probabilities.append(prob.values[1])
+    target_probabilities.append(prob)
 
 
 # Print the probabilities
-
-prob_lung_cancer=[]
-for prob in lung_probabilities:
+target_probabilities[0].values
+prob_target_dropout=[]
+for prob in target_probabilities:
     value_prob_cancer=prob.values[1]
-    prob_lung_cancer.append(value_prob_cancer)
+    prob_target_dropout.append(value_prob_cancer)
 
-test_data['lung'] = test_data['lung'].map({'yes': 1, 'no': 0})
+# UNTIL HERE WE ALREADY FOUND PREDICTED PROBAILITIES ON TEST
 
 def evaluate_performance(predictions_prob, true_labels, threshold=0.5):
     # Convert the probabilities into predictions based on the specified threshold
@@ -92,44 +102,32 @@ def evaluate_performance(predictions_prob, true_labels, threshold=0.5):
     specificity = TN / (TN + FP) if (TN + FP) != 0 else 0
 
     return {
-        "Exactitud": accuracy,
-        "Precisión": precision,
+        "Accuracy": accuracy,
+        "Precision": precision,
         "Recall": recall,
-        "Especificidad": specificity,
-        "Verdaderos positivos": TP,
-        "Falsos positivos": FP,
-        "Verdaderos negativos": TN,
-        "Falsos negativos": FN
+        "Specificity": specificity,
+        "True positives": TP,
+        "False positives": FP,
+        "True negatives": TN,
+        "False negatives": FN
     }
 
-
-
-import pandas as pd
-
 # Convert the list of probabilities into a pandas DataFrame
-prob_df = pd.DataFrame(prob_lung_cancer, columns=['Probability'])
+prob_df = pd.DataFrame(prob_target_dropout, columns=['Probability'])
 
 # Get descriptive statistics
 desc_stats = prob_df.describe()
 
 print(desc_stats)
-train_data['lung'] = train_data['lung'].map({'yes': 1, 'no': 0})
-
-quantile_cutoff = 1 - train_data['lung'].mean()
+quantile_cutoff = 1 - test_data['actual_target'].mean()
 print(quantile_cutoff)
 
 
 cutoff = prob_df['Probability'].quantile(quantile_cutoff)
-# Dado que en train el 94.468% de las personas no tienen cancer de Pulmón
-# se predecirá que tiene cancer de Pulmón si la probabilidad 
-# está por encima del percentil 94.668 de las probabilidades.
-# Esto no está escrito, solo es una forma de definir el punto de corte.
-# Esto de alguna forma que los casos de cancer se distribuyen de igual manera
-# en Training y Test
 
 # Métricas de desempeño
-threshold = cutoff  # Puedes cambiar este valor según tus necesidades
-performance = evaluate_performance(prob_lung_cancer, test_data['lung'], threshold)
+threshold = cutoff  
+performance = evaluate_performance(prob_target_dropout, test_data['actual_target'], threshold)
 
 for key, value in performance.items():
     print(f"{key}: {value}")
