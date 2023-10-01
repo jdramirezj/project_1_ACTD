@@ -13,7 +13,7 @@ path_datos_samuel = 'C:/Users/berna/OneDrive/Escritorio/Universidad de los Andes
 path_datos_juan = '/Users/juandramirezj/Documents/Universidad - MIIND/ACTD/proyecto_1/project_1_ACTD/data'
 
 # Cargar los datos
-data = pd.read_csv(path_datos_juan+'/data.csv', delimiter=";")
+data = pd.read_csv(path_datos_samuel+'/data.csv', delimiter=";")
 # For numerical columns, fill NaN with mean
 for col in data.select_dtypes(include=['float64', 'int64']):
     data[col].fillna(data[col].mean(), inplace=True)
@@ -38,41 +38,180 @@ print(nan_summary)
 
 print(data)
 
-# Discretize 'perc_approved_sem2' into quartiles
+# Discretize variables and 'perc_approved_sem2' into quartiles
 data['Inflation rate'] = pd.qcut(data['Inflation rate'], q=4, labels=["Q1", "Q2", "Q3", "Q4"])
 data['Unemployment rate'] = pd.qcut(data['Unemployment rate'], q=4, labels=["Q1", "Q2", "Q3", "Q4"])
 data['perc_approved_sem1'] = pd.qcut(data['perc_approved_sem1'], q=2, labels=["Q1", "Q2"])
 data['perc_approved_sem2'] = pd.qcut(data['perc_approved_sem2'], q=2, labels=["Q1", "Q2"])
 data['Age at enrollment'] = pd.qcut(data['Age at enrollment'], q=4, labels=["Q1", "Q2", "Q3", "Q4"])
+data['Admission grade'] = pd.qcut(data['Admission grade'], q=2, labels=["Q1", "Q2"])
+data['Previous qualification (grade)'] = pd.qcut(data['Previous qualification (grade)'], q=2, labels=["Q1", "Q2"])
 data['Target']
 data['actual_target'] = np.where(data['Target']=='Dropout',1,0)
 
 # Partir los datos en entrenamiento y prueba
 train_data, test_data = train_test_split(data, test_size=0.25, random_state=42)
 
-
+# model1
 # Definir la red bayesiana
-model = BayesianNetwork([("Unemployment rate", "Debtor"), ("Inflation rate", "Debtor"),
+model1 = BayesianNetwork([("Unemployment rate", "perc_approved_sem1"), ("Inflation rate", "perc_approved_sem1"),
                          ("Debtor", "perc_approved_sem1"), ("Scholarship holder", "perc_approved_sem1"),
                          ("perc_approved_sem1", "perc_approved_sem2"), ("perc_approved_sem2","actual_target"),
                          ("Age at enrollment","actual_target")])
 
-model.fit(data=train_data, estimator=MaximumLikelihoodEstimator)
+model1.fit(data=train_data, estimator=MaximumLikelihoodEstimator)
 data.columns
-for i in model.nodes():
-    print(model.get_cpds(i))
+for i in model1.nodes():
+    print(model1.get_cpds(i))
 
 # Predict probabilities for testing
 
 # Initialize VariableElimination class with the model
-inference = VariableElimination(model)
+inference = VariableElimination(model1)
 test_data.shape
 # For each row in the test_data, predict the probability of "lung"
 test_data.head()
 target_probabilities = []
 for index, row in test_data.iterrows():
     prob = inference.query(variables=["actual_target"], evidence={"Age at enrollment": row["Age at enrollment"],
-                                                          "perc_approved_sem2": row['perc_approved_sem2']})
+                                                                  "Unemployment rate": row["Unemployment rate"],
+                                                                  "Inflation rate": row["Inflation rate"],
+                                                                  "Debtor": row["Debtor"],
+                                                                  "Scholarship holder": row["Scholarship holder"]})
+    target_probabilities.append(prob)
+
+
+# Print the probabilities: OJO FALTA MIRAR ESTO
+target_probabilities[0].values
+prob_target_dropout=[]
+for prob in target_probabilities:
+    value_prob_cancer=prob.values[1]
+    prob_target_dropout.append(value_prob_cancer)
+# model2
+# Definir la red bayesiana
+model2 = BayesianNetwork([("Previous qualification (grade)", "Debtor"), ("Previous qualification (grade)", "Scholarship holder"), ("Previous qualification (grade)", "perc_approved_sem1"),
+                          ("Admission grade", "Debtor"), ("Admission grade", "Scholarship holder"), ("Admission grade", "perc_approved_sem1"),
+                          ("Debtor", "perc_approved_sem2"), ("Scholarship holder", "perc_approved_sem2"), ("perc_approved_sem1", "perc_approved_sem2"),
+                          ("perc_approved_sem2","actual_target")])
+model2.fit(data=train_data, estimator=MaximumLikelihoodEstimator)
+data.columns
+for i in model2.nodes():
+    print(model2.get_cpds(i))
+
+# Predict probabilities for testing
+
+# Initialize VariableElimination class with the model
+inference = VariableElimination(model2)
+test_data.shape
+# For each row in the test_data, predict the probability of "lung"
+test_data.head()
+target_probabilities = []
+for index, row in test_data.iterrows():
+    prob = inference.query(variables=["actual_target"], evidence={"Previous qualification (grade)": row["Previous qualification (grade)"],
+                                                                  "Admission grade": row["Admission grade"]})
+    target_probabilities.append(prob)
+
+
+# Print the probabilities
+target_probabilities[0].values
+prob_target_dropout=[]
+for prob in target_probabilities:
+    value_prob_cancer=prob.values[1]
+    prob_target_dropout.append(value_prob_cancer)
+# model3
+# Definir la red bayesiana
+model3 = BayesianNetwork([("International", "perc_approved_sem1"), ("Marital status", "perc_approved_sem1"), ("Gender", "perc_approved_sem1"),
+                          ("Unemployment rate", "perc_approved_sem1"), ("Inflation rate", "perc_approved_sem1"), ("Displaced", "perc_approved_sem1"),
+                          ("Educational special needs", "perc_approved_sem1"), ("perc_approved_sem1", "perc_approved_sem2"), ("Scholarship holder", "actual_target"),
+                          ("perc_approved_sem2","actual_target"), ("Debtor","actual_target")])
+model3.fit(data=train_data, estimator=MaximumLikelihoodEstimator)
+data.columns
+for i in model3.nodes():
+    print(model3.get_cpds(i))
+
+# Predict probabilities for testing
+
+# Initialize VariableElimination class with the model
+inference = VariableElimination(model3)
+test_data.shape
+# For each row in the test_data, predict the probability of "lung"
+test_data.head()
+target_probabilities = []
+for index, row in test_data.iterrows():
+    prob = inference.query(variables=["actual_target"], evidence={"International": row["International"],
+                                                                  "Marital status": row["Marital status"],
+                                                                  "Gender": row["Gender"],
+                                                                  "Unemployment rate": row["Unemployment rate"],
+                                                                  "Inflation rate": row["Inflation rate"],
+                                                                  "Displaced": row["Displaced"],
+                                                                  "Educational special needs": row["Educational special needs"],
+                                                                  "Scholarship holder": row["Scholarship holder"],
+                                                                  "Debtor": row["Debtor"]})
+    target_probabilities.append(prob)
+
+
+# Print the probabilities
+target_probabilities[0].values
+prob_target_dropout=[]
+for prob in target_probabilities:
+    value_prob_cancer=prob.values[1]
+    prob_target_dropout.append(value_prob_cancer)
+
+
+# model4
+# Definir la red bayesiana
+model4 = BayesianNetwork([("International", "Debtor"), ("Displaced", "Debtor"),
+                          ("Debtor", "perc_approved_sem2"), ("Marital status", "actual_target"),
+                          ("perc_approved_sem2","actual_target")])
+model4.fit(data=train_data, estimator=MaximumLikelihoodEstimator)
+data.columns
+for i in model4.nodes():
+    print(model4.get_cpds(i))
+
+# Predict probabilities for testing
+
+# Initialize VariableElimination class with the model
+inference = VariableElimination(model4)
+test_data.shape
+# For each row in the test_data, predict the probability of "lung"
+test_data.head()
+target_probabilities = []
+for index, row in test_data.iterrows():
+    prob = inference.query(variables=["actual_target"], evidence={"International": row["International"],
+                                                                  "Marital status": row["Marital status"],
+                                                                  "Displaced": row["Displaced"]})
+    target_probabilities.append(prob)
+
+
+# Print the probabilities
+target_probabilities[0].values
+prob_target_dropout=[]
+for prob in target_probabilities:
+    value_prob_cancer=prob.values[1]
+    prob_target_dropout.append(value_prob_cancer)
+
+# model5
+# Definir la red bayesiana
+model5 = BayesianNetwork([("Age at enrollment", "Admission grade"), ("Educational special needs", "Admission grade"),
+                          ("Admission grade", "perc_approved_sem1"), ("Debtor", "actual_target"),
+                          ("perc_approved_sem1","actual_target")])
+model5.fit(data=train_data, estimator=MaximumLikelihoodEstimator)
+data.columns
+for i in model5.nodes():
+    print(model5.get_cpds(i))
+
+# Predict probabilities for testing
+
+# Initialize VariableElimination class with the model
+inference = VariableElimination(model5)
+test_data.shape
+# For each row in the test_data, predict the probability of "lung"
+test_data.head()
+target_probabilities = []
+for index, row in test_data.iterrows():
+    prob = inference.query(variables=["actual_target"], evidence={"Age at enrollment": row["Age at enrollment"],
+                                                                  "Educational special needs": row["Educational special needs"],
+                                                                  "Debtor": row["Debtor"]})
     target_probabilities.append(prob)
 
 
