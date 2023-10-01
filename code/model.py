@@ -85,14 +85,14 @@ import seaborn as sns
 from sklearn.metrics import roc_curve, auc
 from pgmpy.factors.discrete import TabularCPD
 from pgmpy.estimators import BayesianEstimator
-
+import pickle
 
 # Definir el path en dónde se encuentran los datos
 path_datos_samuel = 'C:/Users/berna/OneDrive/Escritorio/Universidad de los Andes/Semestre 2023-2/Análitica Computacional para la Toma de Decisiones/Proyecto/predict+students+dropout+and+academic+success'
 path_datos_juan = '/Users/juandramirezj/Documents/Universidad - MIIND/ACTD/proyecto_1/project_1_ACTD/data'
-
+path_datos_actual = path_datos_juan
 # Cargar los datos
-data = pd.read_csv(path_datos_juan+'/data.csv', delimiter=";")
+data = pd.read_csv(path_datos_actual+'/data.csv', delimiter=";")
 # For numerical columns, fill NaN with mean
 for col in data.select_dtypes(include=['float64', 'int64']):
     data[col].fillna(data[col].mean(), inplace=True)
@@ -150,10 +150,6 @@ for index, row in test_data.iterrows():
                                                                   "Debtor": row["Debtor"],
                                                                   "Scholarship holder": row["Scholarship holder"]})
     target_probabilities1.append(prob)
-
-
-
-get_probs_dropout(target_probabilities1)
 
 # Print the probabilities: OJO FALTA MIRAR ESTO
 
@@ -363,3 +359,10 @@ plot_roc(probs_dropout_by, test_data['actual_target'], title="Model 6 ROC Curve:
 
 # The best model was model #1
 
+# Save the best model: Model 1
+parts = path_datos_actual.split('/')
+
+desired_path = '/'.join(parts[:(len(parts)-1)])
+
+with open(desired_path+'/models/model1.pkl', 'wb') as file:
+    pickle.dump(model1, file)
