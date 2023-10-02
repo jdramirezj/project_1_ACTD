@@ -12,19 +12,19 @@ import pickle
 path_datos_samuel = 'C:/Users/berna/OneDrive/Escritorio/Universidad de los Andes/Semestre 2023-2/Análitica Computacional para la Toma de Decisiones/Proyecto/predict+students+dropout+and+academic+success'
 path_datos_juan = '/Users/juandramirezj/Documents/Universidad - MIIND/ACTD/proyecto_1/project_1_ACTD/data'
 path_datos_actual = path_datos_juan
-
+path_aws ='/home/ec2-user/'
 parts = path_datos_actual.split('/')
 
 desired_path = '/'.join(parts[:(len(parts)-1)])
 
 
 # Load the trained model
-with open(desired_path+'/models/model1.pkl', "rb") as file:
+with open(path_aws+'model1.pkl', "rb") as file:
     model1 = pickle.load(file)
 
 # Load the data for dropdown population
 
-data = pd.read_csv(path_datos_juan+'/processed/final_data.csv')
+data = pd.read_csv(path_aws+'final_data.csv')
 # Unique values for dropdowns
 unique_values = {
     "Age at enrollment": data["Age at enrollment"].unique(),
@@ -129,4 +129,4 @@ def predict(n_clicks, age_enrollment, unemployment_rate, inflation_rate, debtor,
     return ""
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0',debug=True)
