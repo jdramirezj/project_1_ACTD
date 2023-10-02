@@ -123,6 +123,8 @@ data['Admission grade'] = pd.qcut(data['Admission grade'], q=2, labels=["Q1", "Q
 data['Previous qualification (grade)'] = pd.qcut(data['Previous qualification (grade)'], q=2, labels=["Q1", "Q2"])
 data['actual_target'] = np.where(data['Target']=='Dropout',1,0)
 
+# Save the final processed data
+
 # Partir los datos en entrenamiento y prueba
 train_data, test_data = train_test_split(data, test_size=0.25, random_state=42)
 
